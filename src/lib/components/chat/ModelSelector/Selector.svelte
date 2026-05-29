@@ -518,10 +518,7 @@
 		on:click={toggleOpen}
 	>
 		<div
-			class="flex w-full text-left px-0.5 bg-transparent truncate {triggerClassName} justify-between {($settings?.highContrastMode ??
-			false)
-				? 'dark:placeholder-gray-100 placeholder-gray-800'
-				: 'placeholder-gray-400'}"
+			class="flex w-full items-center outline-none"
 			on:mouseenter={async () => {
 				models.set(
 					await getModels(
@@ -531,12 +528,14 @@
 				);
 			}}
 		>
-			{#if selectedModel}
-				{selectedModel.label}
-			{:else}
-				{placeholder}
-			{/if}
-			<ChevronDown className=" self-center ml-2 size-3" strokeWidth="2.5" />
+			<span class="text-left truncate font-medium text-gray-900 dark:text-white" style="font-size: 17px; margin-right: 2px; padding-left: 6px;">
+				{#if selectedModel}
+					{selectedModel.label}
+				{:else}
+					{placeholder}
+				{/if}
+			</span>
+			<ChevronDown className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400 ml-1 transition-transform duration-200 {show ? 'rotate-180' : ''}" strokeWidth="2.5" />
 		</div>
 	</button>
 
@@ -551,7 +550,7 @@
 			<div
 				class="z-40 {$mobile
 					? `w-full`
-					: `${className}`} max-w-[calc(100vw-1rem)] justify-start rounded-2xl bg-white dark:bg-gray-850 dark:text-white shadow-lg outline-hidden"
+					: `${className}`} max-w-[calc(100vw-1rem)] justify-start p-1 rounded-2xl bg-white dark:bg-[#141414] dark:text-white shadow-lg border-[1.5px] border-gray-100 dark:border-[#272727] outline-hidden"
 				transition:flyAndScale
 			>
 				<slot>

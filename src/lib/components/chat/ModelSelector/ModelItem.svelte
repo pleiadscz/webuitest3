@@ -48,9 +48,9 @@
 	role="option"
 	aria-selected={value === item.value}
 	aria-label={$i18n.t('Select {{modelName}} model', { modelName: item.label })}
-	class="flex group/item w-full text-left font-medium line-clamp-1 select-none items-center rounded-button py-2 pl-3 pr-1.5 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl cursor-pointer data-highlighted:bg-muted {index ===
+	class="relative flex group/item w-full items-center px-4 py-2 text-sm cursor-default select-none outline-none rounded-xl hover:bg-[#f2f2f2] dark:hover:bg-[#272727] transition-colors {index ===
 	selectedModelIdx
-		? 'bg-gray-100 dark:bg-gray-800 group-hover:bg-transparent'
+		? 'bg-[#f2f2f2] dark:bg-[#272727]'
 		: ''}"
 	data-arrow-selected={index === selectedModelIdx}
 	data-value={item.value}
@@ -236,7 +236,7 @@
 		</div>
 	</div>
 
-	<div class="ml-auto pl-2 pr-1 flex items-center gap-1.5 shrink-0">
+	<div class="ml-auto pl-4 flex items-center gap-1.5 shrink-0">
 		{#if $user?.role === 'admin' && item.model.loaded}
 			<Tooltip
 				content={`${$i18n.t('Eject')}`}
@@ -279,8 +279,8 @@
 		</ModelItemMenu>
 
 		{#if value === item.value}
-			<div>
-				<Check className="size-3" />
+			<div class="shrink-0">
+				<Check className="w-4 h-4" />
 			</div>
 		{/if}
 	</div>
