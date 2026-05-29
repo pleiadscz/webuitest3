@@ -2576,15 +2576,18 @@
 	};
 
 	const stopResponse = async (processQueue = true) => {
-		if (taskIds) {
+		const responseMessage = history.currentId ? history.messages[history.currentId] : null;
+		const hasActiveResponse = responseMessage?.role === 'assistant' && responseMessage?.done !== true;
+
+		if (taskIds || hasActiveResponse) {
 			if ($chatId) {
 				await stopTasksByChatId(localStorage.token, $chatId).catch((error) => {
 					toast.error(`${error}`);
 					return null;
 				});
-			} else {
+			} else if (taskIds) {
 				for (const taskId of taskIds) {
-					const res = await stopTask(localStorage.token, taskId).catch((error) => {
+					await stopTask(localStorage.token, taskId).catch((error) => {
 						toast.error(`${error}`);
 						return null;
 					});
@@ -2593,15 +2596,18 @@
 
 			taskIds = null;
 
-			const responseMessage = history.messages[history.currentId];
-			// Set all response messages to done
-			if (responseMessage.parentId && history.messages[responseMessage.parentId]) {
+			// Set all sibling response messages to done so the input returns to send mode immediately.
+			if (responseMessage?.parentId && history.messages[responseMessage.parentId]) {
 				for (const messageId of history.messages[responseMessage.parentId].childrenIds) {
 					history.messages[messageId].done = true;
 				}
+			} else if (responseMessage) {
+				responseMessage.done = true;
 			}
 
-			history.messages[history.currentId] = responseMessage;
+			if (history.currentId && responseMessage) {
+				history.messages[history.currentId] = responseMessage;
+			}
 
 			if (autoScroll) {
 				scrollToBottom();
@@ -3192,11 +3198,12 @@
 									bind:dragged
 									{pendingOAuthTools}
 									toolServers={$toolServers}
-										{stopResponse}
-										{generating}
-										{createMessagePair}
-										{onSelect}
-										{onUpload}
+									{stopResponse}
+									{taskIds}
+									{generating}
+									{createMessagePair}
+									{onSelect}
+									{onUpload}
 									onChange={(data) => {
 										if (!$temporaryChatEnabled) {
 											saveDraft(data);

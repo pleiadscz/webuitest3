@@ -11,12 +11,23 @@
 	export let fileUploadEnabled = true;
 	export let prompt = '';
 	export let messages = [];
+	export let history = null;
+	export let taskIds = null;
 	export let generating = false;
+	export let placeholder = 'Wyślij wiadomość';
 
 	let drawerOpen = false;
+	let inputShellElement: HTMLDivElement;
 	let chatTextAreaElement: any; // Can be RichTextInput or textarea
 	let filesInputElement;
 	let dragged = false;
+	let isStopping = false;
+
+	$: lastMessage = history?.currentId ? history?.messages?.[history.currentId] : messages?.at?.(-1);
+	$: responsePending =
+		generating ||
+		(Array.isArray(taskIds) && taskIds.length > 0) ||
+		(lastMessage?.role === 'assistant' && lastMessage?.done !== true);
 
 	$: if (prompt && chatTextAreaElement && chatTextAreaElement.style) {
 		chatTextAreaElement.style.height = '';
@@ -28,6 +39,10 @@
 	};
 
 	const handleSubmit = () => {
+		if (responsePending || isStopping) {
+			return;
+		}
+
 		if (prompt.trim()) {
 			// Call the prop if it exists
 			if (submitPrompt) {
@@ -39,6 +54,47 @@
 		}
 	};
 
+	const handleStopResponse = async () => {
+		if (isStopping) {
+			return;
+		}
+
+		isStopping = true;
+		try {
+			await stopResponse();
+		} finally {
+			isStopping = false;
+		}
+	};
+
+	const updateChatInputHeight = () => {
+		if (typeof window === 'undefined' || !inputShellElement) {
+			return;
+		}
+
+		document.documentElement.style.setProperty(
+			'--chat-input-height',
+			`${Math.ceil(inputShellElement.offsetHeight)}px`
+		);
+	};
+
+	const updateKeyboardInset = () => {
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		const visualViewport = window.visualViewport;
+		const keyboardInset = visualViewport
+			? Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+			: 0;
+
+		document.documentElement.style.setProperty(
+			'--chat-keyboard-inset',
+			`${Math.round(keyboardInset)}px`
+		);
+		updateChatInputHeight();
+	};
+
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 768) {
 			e.preventDefault();
@@ -47,7 +103,22 @@
 	};
 
 	onMount(() => {
-		window.setTimeout(() => chatTextAreaElement?.focus(), 0);
+		if (window.innerWidth >= 768) {
+			window.setTimeout(() => chatTextAreaElement?.focus(), 0);
+		}
+
+		let resizeObserver: ResizeObserver | null = null;
+
+		updateKeyboardInset();
+		updateChatInputHeight();
+		if (inputShellElement && typeof ResizeObserver !== 'undefined') {
+			resizeObserver = new ResizeObserver(updateChatInputHeight);
+			resizeObserver.observe(inputShellElement);
+		}
+
+		window.visualViewport?.addEventListener('resize', updateKeyboardInset);
+		window.visualViewport?.addEventListener('scroll', updateKeyboardInset);
+		window.addEventListener('resize', updateKeyboardInset);
 		
 		const onDrop = (e) => {
 			e.preventDefault();
@@ -62,6 +133,10 @@
 		window.addEventListener('drop', onDrop);
 
 		return () => {
+			window.visualViewport?.removeEventListener('resize', updateKeyboardInset);
+			window.visualViewport?.removeEventListener('scroll', updateKeyboardInset);
+			window.removeEventListener('resize', updateKeyboardInset);
+			resizeObserver?.disconnect();
 			window.removeEventListener('dragover', (e) => e.preventDefault());
 			window.removeEventListener('dragleave', () => dragged = false);
 			window.removeEventListener('drop', onDrop);
@@ -81,7 +156,9 @@
 	</div>
 {/if}
 
-<div class="w-full">
+<div class="mobile-input-spacer" aria-hidden="true"></div>
+
+<div class="chat-input-shell w-full" bind:this={inputShellElement}>
 	<div class="bg-white dark:bg-gray-900">
 		<div class="max-w-3xl px-2.5 mx-auto">
 			<div class="pb-2">
@@ -106,17 +183,17 @@
 
 						<textarea id="chat-textarea" bind:this={chatTextAreaElement} 
 							class="dark:bg-[#303030] dark:text-gray-100 outline-none w-full py-3 px-3 rounded-xl resize-none h-[48px]" 
-							placeholder="Wyślij wiadomość" bind:value={prompt} rows="1" on:keydown={handleKeyDown} />
+							{placeholder} bind:value={prompt} rows="1" on:keydown={handleKeyDown} />
 
 						<div class="self-end mb-2 flex space-x-1 mr-1">
-							{#if !generating && (messages.length == 0 || (messages.length > 0 && messages.at(-1).done == true))}
+							{#if !responsePending}
 								<button class="bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black rounded-full p-1.5" type="submit">
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-5 h-5">
 										<path fill-rule="evenodd" d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z" clip-rule="evenodd" />
 									</svg>
 								</button>
 							{:else}
-								<button class="bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black rounded-full p-1.5" type="button" on:click={stopResponse}>
+								<button class="bg-black text-white hover:bg-gray-900 disabled:opacity-60 dark:bg-white dark:text-black rounded-full p-1.5" type="button" on:click={handleStopResponse} disabled={isStopping} aria-label="Zatrzymaj generowanie">
 									<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M6 8C6 6.89543 6.89543 6 8 6H16C17.1046 6 18 6.89543 18 8V16C18 17.1046 17.1046 18 16 18H8C6.89543 18 6 17.1046 6 16V8Z" /></svg>
 								</button>
 							{/if}
@@ -131,3 +208,27 @@
 <BottomDrawer bind:open={drawerOpen}>
 	<button class="w-full p-4 text-left" on:click={() => { drawerOpen = false; filesInputElement.click(); }}>Wybierz pliki</button>
 </BottomDrawer>
+
+
+<style>
+	.mobile-input-spacer {
+		display: none;
+	}
+
+	@media (max-width: 767px) {
+		.mobile-input-spacer {
+			display: block;
+			height: calc(var(--chat-input-height, 88px) + env(safe-area-inset-bottom) + 12px);
+			flex-shrink: 0;
+		}
+
+		.chat-input-shell {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: calc(var(--chat-keyboard-inset, 0px) + env(safe-area-inset-bottom) + 12px);
+			z-index: 60;
+			transition: bottom 120ms ease-out;
+		}
+	}
+</style>
