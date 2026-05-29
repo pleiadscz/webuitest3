@@ -281,9 +281,7 @@
 										}}
 									>
 										<div class="flex items-center gap-1.5">
-											<div class="-translate-y-[1px]">
-												{model ? `${model.name}` : history.messages[_messageId]?.model}
-											</div>
+
 										</div>
 									</button>
 								{/if}
